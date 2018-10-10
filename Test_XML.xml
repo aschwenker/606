@@ -1,0 +1,16 @@
+<BookList>
+    <Book>
+        <title>Data Science for Transport: A Self-Study Guide with Computer Exercises</title>
+        <author>Charles Fox</author>
+        <price>$70.19</price>
+        <pages>197</pages>
+        <publish_year>2018</publish_year>
+    </Book>
+    <Book>
+        <title>Fundamentals of Geographic Information Systems (GIS), Exercises</title>
+        <author>Michael N. DeMers</author>
+        <price>$64.09</price>
+        <pages>484</pages>
+        <publish_year>2008</publish_year>
+    </Book>
+</BookList>
