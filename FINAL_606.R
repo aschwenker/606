@@ -49,14 +49,32 @@ closed_work_orders_spread
 
 (ALL <- inner_join(activities_less_spread, closed_work_orders_spread))
 colnames(ALL)
+
+
 nrow(ALL$x175)
 names(ALL)
 colnames(ALL)[colnames(ALL)=="Re-Installation"] <- "Re_Int"
 colnames(ALL)[colnames(ALL)=="De-Installaton"] <- "De_Int"
+#FIGURE IF THERE IS A RELATIONSHIP FIRST DUMMY
 
+#http://r-statistics.co/Linear-Regression.html
+scatter.smooth(x=ALL$Re_Int, y=ALL$X175, main="Event 175 ~ Re-Installation")  # scatterplot
+
+par(mfrow=c(1, 2))  # divide graph area in 2 columns
+boxplot(cars$speed, main="Speed", sub=paste("Outlier rows: ", boxplot.stats(cars$speed)$out))  # box plot for 'speed'
+boxplot(cars$dist, main="Distance", sub=paste("Outlier rows: ", boxplot.stats(cars$dist)$out))  # box plot for 'distance'
+
+library(e1071)
+par(mfrow=c(1, 2))  # divide graph area in 2 columns
+plot(density(ALL$X175), main="Density Plot: Speed", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$X175), 2)))  # density plot for 'speed'
+polygon(density(ALL$X175), col="red")
+plot(density(ALL$Re_Int), main="Density Plot: Distance", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$Re_Int), 2)))  # density plot for 'dist'
+polygon(density(ALL$Re_Int), col="red")
+
+cor(ALL$X175, ALL$Re_Int)  # calculate correlation between speed and distance 
+
+#CART BEFORE THE HORSE
 summary(m1 <- glm(X175~De_Int , family="poisson", data=ALL))
-
-
 re_175_table<-table(ALL$`Re-Installation`,ALL$X175)
 re_175_table
 chisq.test(re_175_table, correct=FALSE)
