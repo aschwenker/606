@@ -6,6 +6,7 @@ library(stringr)
 library(tidyr)
 library(readr)
 library(lubridate)
+library(ResourceSelection)
 
 # Location of WARN notice pdf file
 activities_path<-("Z:/GIS/Development/GPS_data/date_event.csv")
