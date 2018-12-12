@@ -7,8 +7,9 @@ library(tidyr)
 library(readr)
 library(lubridate)
 library(ResourceSelection)
+library(DATA606)
+library(e1071)
 
-# Location of WARN notice pdf file
 activities_path<-("Z:/GIS/Development/GPS_data/date_event.csv")
 activities_counts_path<-("Z:/GIS/Development/GPS_data/Event_Counts.csv")
 work_order <- 'C:/Users/aschwenker/Desktop/WorkOrders/Case_00272586_5161105428_Reinstalled.pdf'
@@ -18,27 +19,17 @@ activities<-read.csv(activities_counts_path)
 activities$EventSubTypeID<-paste0("X",activities$EventSubTypeID)
 activities$Date_Txt<- as.character(activities$ActivityDateTimeEST)
 activities<-separate(data = activities, col = Date_Txt, into = c("date", "time"), sep = " ")
-head(activities)
 activities$date<-as.Date(activities$date)
-head(activities)
-
 less<-c("date","EventSubTypeID","X")
 activities_less<-activities[less]
 activities_less$Y<-1
-head(activities_less)
 activities_less<-activities_less%>%group_by(date,EventSubTypeID)%>%tally(X)
-activities_less
 activities_less_spread<-activities_less%>%spread(EventSubTypeID,n,fill=0)
-head(activities_less_spread)
 closed_work_orders<-subset(work_orders,Status=='Closed')
-closed_work_orders
 simplified_fields<-c("Work.Order.Type","Last.Modified.Date")
 closed_work_orders<-closed_work_orders[simplified_fields]
 closed_work_orders$Last.Modified.Date<-as.character(closed_work_orders$Last.Modified.Date)
-closed_work_orders
 grouped_work_orders<-closed_work_orders%>%group_by(Last.Modified.Date,Work.Order.Type)%>%count(Work.Order.Type)
-grouped_work_orders
-write.csv(grouped_work_orders,"Z:/GIS/Development/GPS_data/grouped_work_orders.csv")
 #closed_work_orders$Y<-1
 #closed_work_orders<-closed_work_orders%>% distinct
 closed_work_orders_spread<-grouped_work_orders%>%spread(Work.Order.Type,n,fill=0)
@@ -46,37 +37,42 @@ closed_work_orders_spread<-grouped_work_orders%>%spread(Work.Order.Type,n,fill=0
 closed_work_orders_spread$date<-as.Date(closed_work_orders_spread$Last.Modified.Date, format = "%m/%d/%Y")
 drops <- c("Last.Modified.Date","date_txt")
 closed_work_orders_spread<-closed_work_orders_spread[ , !(names(closed_work_orders_spread) %in% drops)]
-closed_work_orders_spread
-
 (ALL <- inner_join(activities_less_spread, closed_work_orders_spread))
 colnames(ALL)
 
-
-nrow(ALL$x175)
-names(ALL)
 colnames(ALL)[colnames(ALL)=="Re-Installation"] <- "Re_Int"
 colnames(ALL)[colnames(ALL)=="De-Installaton"] <- "De_Int"
-#FIGURE IF THERE IS A RELATIONSHIP FIRST DUMMY
+nrow(ALL)
+
+
 
 #http://r-statistics.co/Linear-Regression.html
 scatter.smooth(x=ALL$Re_Int, y=ALL$X175, main="Event 175 ~ Re-Installation")  # scatterplot
 
-par(mfrow=c(1, 2))  # divide graph area in 2 columns
-boxplot(cars$speed, main="Speed", sub=paste("Outlier rows: ", boxplot.stats(cars$speed)$out))  # box plot for 'speed'
-boxplot(cars$dist, main="Distance", sub=paste("Outlier rows: ", boxplot.stats(cars$dist)$out))  # box plot for 'distance'
+scatter.smooth(x=ALL$De_Int, y=ALL$X5, main="Event 106 ~ De-Installation")  # scatterplot
 
-library(e1071)
-par(mfrow=c(1, 2))  # divide graph area in 2 columns
-plot(density(ALL$X175), main="Density Plot: Speed", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$X175), 2)))  # density plot for 'speed'
-polygon(density(ALL$X175), col="red")
-plot(density(ALL$Re_Int), main="Density Plot: Distance", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$Re_Int), 2)))  # density plot for 'dist'
-polygon(density(ALL$Re_Int), col="red")
 
-cor(ALL$X175, ALL$Re_Int)  # calculate correlation between speed and distance 
 
-#CART BEFORE THE HORSE
-summary(m1 <- glm(X175~De_Int , family="poisson", data=ALL))
-re_175_table<-table(ALL$`Re-Installation`,ALL$X175)
-re_175_table
-chisq.test(re_175_table, correct=FALSE)
-fisher.test(re_175_table)
+scatter.smooth(x=ALL$Re_Int, y=ALL$X15, main="Event 15 ~ Re-Installation")  # scatterplot
+
+par(mfrow=c(1,2))  # divide graph area in 2 columns
+plot(density(ALL$X15), main="Density Plot: Event 15", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$X175), 2)))  # density plot for 'speed'
+polygon(density(ALL$X15), col="blue")
+plot(density(ALL$Re_Int), main="Density Plot: Re-installations", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$Re_Int), 2)))  # density plot for 'dist'
+polygon(density(ALL$Re_Int), col="blue")
+cor(ALL$X15, ALL$Re_Int)  # calculate correlation between 15 and re-installations 
+m1 <- lm(X106~ De_Int, data = ALL)
+print(m1)
+summary(m1)
+plot(ALL$X106~ALL$De_Int)
+abline(m1)
+
+scatter.smooth(x=ALL$De_Int, y=ALL$X106, main="Event 106 ~ De-Installation")  # scatterplot
+par(mfrow=c(1,2 ))  # divide graph area in 2 columns
+plot(density(ALL$X106), main="Density Plot: Event 106", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$X175), 2)))  # density plot for 'speed'
+polygon(density(ALL$X106), col="red")
+plot(density(ALL$De_Int), main="Density Plot: De-installations", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$Re_Int), 2)))  # density plot for 'dist'
+polygon(density(ALL$De_Int), col="red")
+cor(ALL$X106, ALL$De_Int)  # calculate correlation between 106 and re-installations 
+
+
