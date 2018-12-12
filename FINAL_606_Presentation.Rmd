@@ -1,0 +1,121 @@
+---
+title: "GPS Data Events and Work Order Correlations"
+author: "Anne Schwenker"
+date: "December 11, 2018"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+## Introduction
+
+-6000 vehicles with gps units installed report activity every 2 minutes. This activity is collected and stored for analysis. These activities have events associated that are reported by the device
+-The most frequent event is "6 - timed update"
+-An operations team is met with the challenge of managing these 6000 devices and coordinating with a 3rd party vendor for installations and repairs. The team wishes you to use the reported events to make inferences regarding the state of the device, and to determine if a repair has been performed so that they may know independent of a report from the 3rd party installation & repair vendor. 
+
+## The Question
+
+Is there a relationship between reported gps events and instances of work performed
+
+## The data
+- GPS Data
+records recorded every 2 minutes with lat lon, vehicle attributes and an event subtype id
+
+- Work Order Data
+a record for every work order stating the date the work order closed 
+
+- These two sources were manipulated to find count of event by day and count of repair type by day and joined together based on the date. Final data used for analysis was a record for each day with variables of each event and its count
+
+```{r data, echo = FALSE, warning=FALSE,error=FALSE,message=FALSE}
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(ResourceSelection)
+library(e1071)
+library(knitr)
+activities_path<-("Z:/GIS/Development/GPS_data/date_event.csv")
+activities_counts_path<-("Z:/GIS/Development/GPS_data/Event_Counts.csv")
+work_order <- 'C:/Users/aschwenker/Desktop/WorkOrders/Case_00272586_5161105428_Reinstalled.pdf'
+WORD_ORDER_TRACKER_PATH<-'C:/Users/aschwenker/Desktop/WorkOrders/TTNM_WORK_ORDER_TRACKER.CSV'
+work_orders<-read.csv(WORD_ORDER_TRACKER_PATH)
+activities<-read.csv(activities_counts_path)
+activities$EventSubTypeID<-paste0("X",activities$EventSubTypeID)
+activities$Date_Txt<- as.character(activities$ActivityDateTimeEST)
+activities<-separate(data = activities, col = Date_Txt, into = c("date", "time"), sep = " ")
+activities$date<-as.Date(activities$date)
+less<-c("date","EventSubTypeID","X")
+activities_less<-activities[less]
+activities_less$Y<-1
+activities_less<-activities_less%>%group_by(date,EventSubTypeID)%>%tally(X)
+activities_less_spread<-activities_less%>%spread(EventSubTypeID,n,fill=0)
+closed_work_orders<-subset(work_orders,Status=='Closed')
+simplified_fields<-c("Work.Order.Type","Last.Modified.Date")
+closed_work_orders<-closed_work_orders[simplified_fields]
+closed_work_orders$Last.Modified.Date<-as.character(closed_work_orders$Last.Modified.Date)
+grouped_work_orders<-closed_work_orders%>%group_by(Last.Modified.Date,Work.Order.Type)%>%count(Work.Order.Type)
+closed_work_orders_spread<-grouped_work_orders%>%spread(Work.Order.Type,n,fill=0)
+closed_work_orders_spread$date<-as.Date(closed_work_orders_spread$Last.Modified.Date, format = "%m/%d/%Y")
+drops <- c("Last.Modified.Date","date_txt")
+closed_work_orders_spread<-closed_work_orders_spread[ , !(names(closed_work_orders_spread) %in% drops)]
+ALL <- inner_join(activities_less_spread, closed_work_orders_spread)
+colnames(ALL)[colnames(ALL)=="Re-Installation"] <- "Re_Int"
+colnames(ALL)[colnames(ALL)=="De-Installaton"] <- "De_Int"
+kable(ALL[1:5,], caption = "Event Counts by Day")
+```
+
+## The Study
+
+- this study was observational based on a sample of days where gps events and work orders occurred
+- The larger population would be the future days with work orders and events occuring through which assumptions could be made about work done based on gps events occurring
+
+## Exploratory Data Analysis
+- Two gps events were chosen that were expected to have a relationship with work order events:
+
+- event 15 : SMDP_EVENT_COLD_POWER_ON
+- event 106 : SMDP_EVENT_EXTERNAL_POWER_REMOVED
+
+- These were seen to have a strong relationship with Re-Installation and De-Installation events, so further exploratory analysis was done
+
+```{r echo = FALSE, warning=FALSE,error=FALSE,message=FALSE}
+
+scatter.smooth(x=ALL$Re_Int, y=ALL$X15, main="Event 15 ~ Re-Installation")  # scatterplot
+
+par(mfrow=c(1,2))  # divide graph area in 2 columns
+plot(density(ALL$X15), main="Density Plot: Event 15", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$X175), 2)))  # density plot for 'speed'
+polygon(density(ALL$X15), col="blue")
+plot(density(ALL$Re_Int), main="Density Plot: Re-installations", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$Re_Int), 2)))  # density plot for 'dist'
+polygon(density(ALL$Re_Int), col="blue")
+cor(ALL$X15, ALL$Re_Int)  # calculate correlation between 15 and re-installations 
+m1 <- lm(X15~ Re_Int, data = ALL)
+summary(m1)
+plot(ALL$X15~ALL$Re_Int)
+abline(m1)
+par(mfrow=c(1,1))
+scatter.smooth(x=ALL$De_Int, y=ALL$X106, main="Event 106 ~ De-Installation")  # scatterplot
+par(mfrow=c(1,2 ))  # divide graph area in 2 columns
+plot(density(ALL$X106), main="Density Plot: Event 106", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$X175), 2)))  # density plot for 'speed'
+polygon(density(ALL$X106), col="red")
+plot(density(ALL$De_Int), main="Density Plot: De-installations", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(ALL$Re_Int), 2)))  # density plot for 'dist'
+polygon(density(ALL$De_Int), col="red")
+cor(ALL$X106, ALL$De_Int)  # calculate correlation between 106 and re-installations 
+m2 <- lm(X106~ De_Int, data = ALL)
+summary(m2)
+plot(ALL$X106~ALL$De_Int)
+abline(m2)
+
+```
+
+
+
+## Results
+There was a correlation seen between gps event 15 and re-installations events and gps event 106 and de-installation events
+The final sample size was too small to make inferences from, some correlation can be seen. 
+work order events are not normally distributed 
+
+## Conclusion
+The study rejects the assumption work performed can be inferred from GPS activity events.
+A larger sample needs to be collected and the study performed again. 
+
